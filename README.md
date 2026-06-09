@@ -18,13 +18,12 @@
 [![LangChain](https://img.shields.io/badge/LangChain-0.2+-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)](https://langchain.com)
 [![Gemini](https://img.shields.io/badge/Gemini_2.0_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://deepmind.google/gemini)
 [![Tavily](https://img.shields.io/badge/Tavily_Search-FF6B35?style=for-the-badge)](https://tavily.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License](https://img.shields.io/badge/License-MIT-00E5FF?style=for-the-badge)](LICENSE)
 
 <br/>
 
 > **Four specialized AI agents. One research topic. One publication-quality report.**
-
-[**Live Demo**](#-live-demo) · [**Architecture**](#-system-architecture) · [**Quickstart**](#-quickstart) · [**API**](#-api-reference)
 
 </div>
 
@@ -32,9 +31,9 @@
 
 ## What This Does
 
-ResearchAgent is a **multi-agent AI pipeline** that decomposes deep research into four specialized roles — searching, reading, writing, and critiquing — coordinated through a stateful LangChain pipeline.
+ResearchAgent is a **multi-agent AI pipeline** that decomposes deep research into four specialized roles — searching, reading, writing, and critiquing — coordinated through a stateful LangChain pipeline, served via a FastAPI backend with a browser-based UI.
 
-Give it any topic. Get back a structured, cited research report evaluated by an adversarial critic agent, in seconds.
+Give it any topic. Get back a structured, cited research report evaluated by an adversarial critic agent.
 
 ```
 INPUT: "Recent advances in diffusion model architectures"
@@ -93,15 +92,30 @@ state['feedback']        = critic_chain.invoke(report)       # Step 4
 
 ```
 ┌─────────────────────────────────────────┐
-│  LLM BACKBONE   │  Gemini 2.0 Flash     │
-│  AGENT FRAMEWORK│  LangChain 0.2+       │
-│  SEARCH         │  Tavily API (advanced) │
-│  WEB SCRAPING   │  BeautifulSoup4 + lxml│
-│  ASYNC          │  aiohttp              │
-│  VALIDATION     │  Pydantic v2          │
-│  RESILIENCE     │  Tenacity (retries)   │
-│  JSON           │  orjson               │
+│  LLM BACKBONE    │  Gemini 2.0 Flash    │
+│  AGENT FRAMEWORK │  LangChain 0.2+      │
+│  SEARCH          │  Tavily API (advanced)│
+│  WEB SCRAPING    │  BeautifulSoup4 + lxml│
+│  BACKEND         │  FastAPI + Uvicorn   │
+│  VALIDATION      │  Pydantic v2         │
+│  RESILIENCE      │  Tenacity (retries)  │
+│  ASYNC           │  aiohttp             │
 └─────────────────────────────────────────┘
+```
+
+---
+
+## Project Structure
+
+```
+Research-Agent/
+├── agents.py          # Searcher, Reader agents + Writer/Critic chains
+├── tools.py           # web_search (Tavily) and scrape_url (BS4) tools
+├── pipeline.py        # Stateful 4-step orchestration pipeline
+├── server.py          # FastAPI backend — serves UI + /research endpoint
+├── index.html         # Frontend UI (served at GET /)
+├── requirements.txt   # Full dependency list
+└── README.md
 ```
 
 ---
@@ -124,17 +138,24 @@ pip install -r requirements.txt
 
 ### 2. Configure Environment
 
-```bash
-cp .env.example .env
-# Edit .env with your keys:
-```
+Create a `.env` file in the repo root:
 
 ```env
 GOOGLE_API_KEY=AIza...
 TAVILY_API_KEY=tvly-...
 ```
 
-### 3. Run
+> Keys can also be entered directly in the UI — they're stored in the browser session only.
+
+### 3. Start the Server
+
+```bash
+uvicorn server:app --reload
+```
+
+Open `http://localhost:8000` in your browser. The UI loads, enter your topic, and the full pipeline runs.
+
+### 4. Use Programmatically
 
 ```python
 from pipeline import run_pipeline
@@ -145,22 +166,13 @@ print(state['report'])    # Full research report
 print(state['feedback'])  # Critic evaluation with score
 ```
 
-### 4. Launch the UI
-
-```bash
-# Start the backend (requires FastAPI + uvicorn)
-uvicorn server:app --reload
-
-# Open research_agent_ui.html in your browser
-```
-
 ---
 
 ## Output Format
 
-### Report Structure (Writer Agent)
+### Report (Writer Agent)
 
-```markdown
+```
 ## Introduction
 [Context and scope of the research topic]
 
@@ -179,11 +191,11 @@ uvicorn server:app --reload
 [Synthesis and forward-looking insights]
 
 ## Sources
-- https://source1.com — [context]
-- https://source2.com — [context]
+- https://source1.com
+- https://source2.com
 ```
 
-### Critique Structure (Critic Agent)
+### Critique (Critic Agent)
 
 ```
 Score: 8/10
@@ -191,45 +203,26 @@ Score: 8/10
 Strengths:
 - Well-structured with clear section hierarchy
 - Three well-evidenced key findings with source attribution
-- Balanced coverage of theoretical and practical dimensions
 
 Areas to Improve:
 - More quantitative benchmarks would strengthen claims
 - Deeper discussion of limitations and open problems
-- Cross-disciplinary connections could be made more explicit
 
 One line verdict: Strong, well-cited report — improve empirical depth for publication quality.
 ```
 
 ---
 
-## Project Structure
-
-```
-Research-Agent/
-├── agents.py          # Searcher, Reader agents + Writer/Critic chains
-├── tools.py           # web_search (Tavily) and scrape_url (BS4) tools
-├── pipeline.py        # Stateful 4-step orchestration pipeline
-├── requirements.txt   # Full dependency list
-├── research_agent_ui.html  # Hacker-aesthetic frontend UI
-└── README.md
-```
-
----
-
 ## Design Decisions
 
-**Why Gemini 2.0 Flash?**  
-High throughput, low latency, strong instruction-following at temperature 0.5. Ideal for structured output tasks (report + evaluation) without overproduction.
+**Why Gemini 2.0 Flash?**
+High throughput, low latency, strong instruction-following at temperature 0.5 — ideal for structured output tasks without overproduction.
 
-**Why Tavily over Google Search API?**  
-Tavily's `search_depth=advanced` mode is purpose-built for LLM pipelines — it returns clean, structured results without HTML boilerplate, avoiding extra parsing overhead.
+**Why Tavily over Google Search API?**
+Tavily's `search_depth=advanced` mode is purpose-built for LLM pipelines — clean structured results with no HTML boilerplate to parse.
 
-**Why a stateful dict instead of LangGraph?**  
-This is intentionally minimal — a four-node DAG with no cycles, conditional branching, or memory. A plain Python dict is both simpler and faster than spinning up a LangGraph StateGraph. The architecture is deliberately easy to extend into a LangGraph workflow (just replace `state` with `TypedDict` and wrap each step into a node).
-
-**Retry Resilience**  
-`tenacity` wraps LLM calls with exponential backoff — essential for production use where Gemini may rate-limit on burst requests.
+**Why a stateful dict instead of LangGraph?**
+This is intentionally minimal — a four-node linear DAG with no cycles or branching. A plain Python dict is simpler and faster for this use case. The architecture maps directly onto a LangGraph `StateGraph` if you want to extend it with conditional routing or memory.
 
 ---
 
@@ -242,7 +235,7 @@ This is intentionally minimal — a four-node DAG with no cycles, conditional br
 # In agents.py
 fact_check_prompt = ChatPromptTemplate.from_messages([
     ("system", "You are a rigorous fact-checker. Identify unverified claims."),
-    ("human", "Report:\n{report}\n\nSources:\n{sources}\n\nList any factual claims that cannot be verified from the provided sources.")
+    ("human", "Report:\n{report}\n\nSources:\n{sources}\n\nList any claims that cannot be verified from the provided sources.")
 ])
 fact_check_chain = fact_check_prompt | llm | StrOutputParser()
 ```
@@ -264,14 +257,14 @@ class ResearchState(TypedDict):
     feedback: str
 
 workflow = StateGraph(ResearchState)
-workflow.add_node("search",  search_node)
-workflow.add_node("read",    read_node)
-workflow.add_node("write",   write_node)
+workflow.add_node("search",   search_node)
+workflow.add_node("read",     read_node)
+workflow.add_node("write",    write_node)
 workflow.add_node("critique", critique_node)
 workflow.set_entry_point("search")
-workflow.add_edge("search", "read")
-workflow.add_edge("read",   "write")
-workflow.add_edge("write",  "critique")
+workflow.add_edge("search",   "read")
+workflow.add_edge("read",     "write")
+workflow.add_edge("write",    "critique")
 workflow.add_edge("critique", END)
 
 app = workflow.compile()
@@ -280,7 +273,7 @@ app = workflow.compile()
 </details>
 
 <details>
-<summary><b>Add Memory / Conversation History</b></summary>
+<summary><b>Add Conversation Memory</b></summary>
 
 ```python
 from langchain.memory import ConversationBufferMemory
