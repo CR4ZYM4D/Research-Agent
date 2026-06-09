@@ -43,5 +43,5 @@ def run_pipeline(topic: str):
         return state
          
     except Exception as e:
-        raise (e, sys)
+        raise e
 
