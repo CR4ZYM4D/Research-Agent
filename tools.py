@@ -16,7 +16,9 @@ tavily = TavilyClient(api_key = os.getenv("TAVILY_API_KEY"))
 
 @tool
 def web_search(query: str, depth: str = 'advanced'):
-
+    """
+        Search the web for a given query using Tavily and return top results with titles, URLs, and snippets.
+    """
     try: 
     
         response = tavily.search(query = query, max_results = 5, search_depth=depth)
@@ -29,12 +31,14 @@ def web_search(query: str, depth: str = 'advanced'):
         return res
 
     except Exception as e:
-        raise(e, sys)
+        raise e
     
 
 @tool
 def scrape_url(url: str):
-
+    """
+        Scrape and return the cleaned text content of a given URL.
+    """
     try:
         resp = requests.get(url = url, timeout=8, headers = {"User-Agent": "Mozilla/5.0"})
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -43,4 +47,4 @@ def scrape_url(url: str):
 
         return soup.get_text(separator=" ", strip = True)[:4000]
     except Exception as e:
-        raise(e, sys)
+        raise e
